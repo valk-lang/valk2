@@ -380,6 +380,13 @@ fn vgen_longjmp(b: Build, buffer: Value) Value {
         rett: type_void(b)
     }
 }
+fn vgen_frame_adr(b: Build, depth: int) Value {
+    return Value {
+        type: v_frame_adr
+        int: depth
+        rett: type_ptr(b).get_nullable()
+    }
+}
 
 fn vgen_export_symbol(name: String, rett: Type) Value {
     return Value {

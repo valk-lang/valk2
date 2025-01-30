@@ -385,6 +385,15 @@ fn ir_value_str(ir: IR, v: Value) String {
         }
         return ""
     }
+    if vt == v_frame_adr {
+        let framep = ir.var()
+        let code = ir.code()
+        code.append_str(framep)
+        code.append_str(" = tail call ptr @llvm.frameaddress(i32 ")
+        code.append_str(v.int)
+        code.append_str(")\n")
+        return framep
+    }
 
     return "-value-"
 }

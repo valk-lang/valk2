@@ -331,6 +331,15 @@ fn read_value(p: Parser, scope: Scope, prio: int (99999)) Value {
             p.expect(")", true, true)
             v = vgen_longjmp(b, buf);
             scope.did_return = true;
+        } else if p.word_is("@frame_address") {
+            p.expect("(", false, false)
+            let buf = read_value(p, scope)
+            if buf.type != v_int || buf.int < 0 {
+                p.error("The argument of @frame_address must be a positive integer literal")
+            }
+            p.expect(")", true, true)
+            let depth = buf.int
+            v = vgen_frame_adr(b, depth);
         }
     } else if t == tok_string {
         let body = p.word()
