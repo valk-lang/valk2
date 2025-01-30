@@ -63,11 +63,14 @@ struct IR {
 
         // Globals
         each this.unit.globals as g {
-            ir_check_global_definition(this, g)
+            ir_check_global_definition(this, g, false)
         }
         each this.unit.classes as class {
             ir_define_vtable(this, class)
         }
+
+        ir_define_gc_table(this)
+
         final.append(this.code_global_defs)
         final.append_str("\n");
 

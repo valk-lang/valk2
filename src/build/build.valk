@@ -23,6 +23,7 @@ struct Build {
     classes: Array[Class] (array[Class]{})
     globals: Array[Global] (array[Global]{})
     vtable_indexes: Map[uint] (map[uint]{})
+    gctable_values: Array[Value] (array[Value]{})
     // Compile macro
     cm_defs: Map[String] (Map[String].new())
     //
@@ -30,6 +31,7 @@ struct Build {
     gen_func_name: uint (0)
     LOC: uint (0)
     vtable_index_count: uint (0)
+    gctable_count: uint (0)
     //
     cli: helper:CLIArgs
     class_sizes_known: bool (false)

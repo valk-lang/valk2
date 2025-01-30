@@ -88,6 +88,7 @@ struct GcLocal {
 
         // this.lock.lock()
         // print("-")
+        // print("<<<<<<<<<<<<<<<<<<<<<<<<<<\n")
 
         let s_mark = shared_mark
 
@@ -127,6 +128,7 @@ struct GcLocal {
         }
 
         this.disable = false
+        // print(">>>>>>>>>>>>>>>>>>\n")
         // this.lock.unlock()
         // print(".")
     }
@@ -148,15 +150,19 @@ struct GcLocal {
             let color = @ptrv(adr, uint, 1) @as color_type
             adr += sizeof(ptr) * 2
 
-            if @ptrv(item, u8, byte_mark_rel) & 1 == 0 {
+            let mark = @ptrv(item, u8, byte_mark_rel)
+
+            // Check on-stack mark
+            if mark & 1 == 0 {
                 // Disable color
                 if color >= color_custom {
                     @ptrv(state, u8, color) = color_state_unused
                     let adr = return_colors.get(sizeof(color_type))
                     @ptrv(adr, color_type) = color
 
-                    if @ptrv(item, u8, byte_still_used_rel) == 0 {
-                        @ptrv(item, u8, byte_still_used_rel) = 1
+                    // Check in-still-used-list mark
+                    if mark & 2 == 0 {
+                        @ptrv(item, u8, byte_mark_rel) = mark | 2
                         let adr = stu.get(sizeof(ptr))
                         @ptrv(adr, ptr) = item
                     }
@@ -284,7 +290,12 @@ struct GcLocal {
         if @ptrv(color_state, u8, color) == color_state_unused {
             let c = Color.get()
             color_disable_after = false
-            mark(item, c)
+
+            // mark(item, c)
+            let vti = @ptrv(item, u16, byte_vtable_index_rel)
+            let func = @ptrv(gc_tables, fn(ptr, color_type)(), vti * GC_TABLE_SIZE + vt_mark)
+            func(item, c)
+
             if color_disable_after {
                 let adr = disable_colors.get(sizeof(color_type))
                 @ptrv(adr, color_type) = c
@@ -308,14 +319,22 @@ struct GcLocal {
             let item = @ptrv(adr, ptr)
             adr += sizeof(ptr)
 
-            @ptrv(item, u8, byte_still_used_rel) = 0
+            // Remove mark
+            let mark = @ptrv(item, u8, byte_mark_rel)
+            @ptrv(item, u8, byte_mark_rel) = mark & 253
 
             // Check mark
             let color = @ptrv(item, color_type, byte_color_rel)
             if @ptrv(state, u8, color) == color_state_unused {
                 // Free item
-                free(item)
+                // free(item)
+                let vti = @ptrv(item, u16, byte_vtable_index_rel)
+                let func = @ptrv(gc_tables, fn(ptr)(), vti * GC_TABLE_SIZE + vt_free)
+                func(item)
+
                 continue
+            } else {
+                // TODO: move 'remove-mark' code here
             }
         }
     }

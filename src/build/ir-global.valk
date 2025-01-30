@@ -1,10 +1,11 @@
 
-fn ir_check_global_definition(ir: IR, g: Global) {
+fn ir_check_global_definition(ir: IR, g: Global, from_func: bool) {
+
+    let extern = g.from_header || g.unit != ir.unit
+    if !extern && from_func : return
 
     if ir.defined_globals.contains(g) : return
     else : ir.defined_globals.push(g)
-
-    let extern = g.from_header || g.unit != ir.unit
 
     let code = ir.code_global_defs
 
@@ -15,11 +16,22 @@ fn ir_check_global_definition(ir: IR, g: Global) {
     code.append_str(" = ")
     code.append_str(extern ? "external " : "dso_local ")
     code.append_str(g.shared ? "" : "thread_local(initialexec) ")
-    code.append_str("global ")
+    code.append_str(g.is_const ? "constant " : "global ")
     code.append_str(ir_type(type))
     if !extern {
         code.append_str(" ")
-        code.append_str(type.is_pointer ? "null" : "0")
+
+        let has_default = false
+        let v = g.default_value
+        if isset(v) {
+            let len = code.length
+            ir_static_value(ir, v, code)
+            has_default = code.length != len
+        }
+
+        if !has_default {
+            code.append_str(type.is_pointer ? "null" : "0")
+        }
     }
     code.append_str(", align 8\n")
 }

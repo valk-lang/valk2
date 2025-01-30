@@ -165,10 +165,24 @@ struct Type {
         type.nullable = true
         return type
     }
+    fn get_notnullable() Type {
+        if !this.nullable : return this
+        if !this.is_pointer : return this
+        let type = this.clone()
+        type.nullable = false
+        return type
+    }
     fn get_pointer() Type {
         if this.is_pointer : return this
         let type = this.clone()
         type.is_pointer = true
+        return type
+    }
+    fn get_inline_type() Type {
+        if !this.is_pointer : return this
+        let type = this.clone()
+        type.is_pointer = false
+        type.nullable = false
         return type
     }
 
@@ -268,6 +282,12 @@ fn read_type(p: Parser, scope: Scope, allow_newline: bool (true)) Type {
             p.expect(")", true, true)
             return v.rett
         }
+        if p.word_is("notnull") {
+            p.expect("(", false, false)
+            let t = read_type(p, scope, true)
+            p.expect(")", true, true)
+            return t.get_notnullable()
+        }
         let id = Id.read_full(p, p.word())
         let idf = scope.find_or_err(p, id)
         return handle_type_idf(p, scope, idf)
@@ -339,6 +359,7 @@ fn type_ptr(b: Build) Type {
 fn type_array(b: Build, array_of: Type, size: uint) Type {
     let type = Type.new(b, ty_array)
     type.array_of = array_of
+    type.array_size = size
     type.is_pointer = true
     return type
 }

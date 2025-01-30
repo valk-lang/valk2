@@ -3,7 +3,6 @@ struct Func {
     unit: Unit
     build: Build
     fc: Fc
-    name: String
     export_name: String
     display_name: String
     act: int
@@ -22,6 +21,7 @@ struct Func {
     //
     generic_names: ?Array[String] (null)
     generics: ?Map[Func] (null)
+    generic_types: ?Map[Type] (null)
     //
     ir_code: String ("")
     // Stack

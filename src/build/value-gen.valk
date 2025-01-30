@@ -238,7 +238,7 @@ fn vgen_class_init(class: Class, decl_scope: Scope, values: Map[Value]) Value {
         let b = class.build
         let func = b.valk_class_func("gc", "Pool", "get_from_pool_index")
         let pool = vgen_int(class.pool_index @as int, b.valk_type("type", "uint"))
-        let values = array[Value]{ pool, vgen_bool(b, class.uses_vtable) }
+        let values = array[Value]{ pool, vgen_bool(b, class.funcs.has("_gc_free")) }
         let call = vgen_func_call(b, decl_scope, vgen_func_ptr(func), values)
         return call
     } : <{
@@ -385,6 +385,16 @@ fn vgen_export_symbol(name: String, rett: Type) Value {
     return Value {
         type: v_export_symbol
         string: name
+        rett: rett
+    }
+}
+
+fn vgen_static_array(b: Build, type: Type, values: Array[Value]) Value {
+    let size = values.length
+    let rett = type_array(b, type, size)
+    return Value {
+        type: v_static_array
+        values: values
         rett: rett
     }
 }
