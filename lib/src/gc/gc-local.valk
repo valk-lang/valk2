@@ -1,5 +1,6 @@
 
 use coro
+use core
 
 global local_gc : GcLocal (@undefined)
 
@@ -88,6 +89,8 @@ struct GcLocal {
 
         // this.lock.lock()
         // print("-")
+        let z = 10
+        z = 5
 
         let s_mark = shared_mark
 
@@ -180,6 +183,58 @@ struct GcLocal {
     }
 
     fn mark_on_stack(val: u8) {
+
+        let v1 = 0
+        let sp = @ref(v1)
+        let fp = @frame_address(0) @as ptr
+        let fp1 = @frame_address(1) @as ptr
+
+        ((fp - 0) @as ptr).print_stack_from_top(50)
+
+        print("frame: ")
+        fp.print()
+        print("\n")
+
+        core:raise(11)
+
+        // // Loop stack
+        // while true {
+        //     print("frame:")
+        //     fp.print()
+        //     print("\n")
+        //     print("frame1:")
+        //     fp1.print()
+        //     print("\n")
+
+        //     print("adr:")
+        //     sp.print()
+        //     print("\n")
+        //     let gc_count = @ptrv(sp, uint, 2)
+        //     let fsize = @ptrv(sp, uint, 3)
+        //     print("gc:")
+        //     gc_count.print(10)
+        //     print("\n")
+        //     print("asize:")
+        //     fsize.print(10)
+        //     print("\n")
+        //     let next = @ptrv(fp, ptr, 0)
+        //     print("next:")
+        //     next.print()
+        //     print("\n")
+
+        //     let g1 = @ptrv(next, uint, -1)
+        //     let s1 = @ptrv(next, uint, -2)
+        //     print("gc:")
+        //     g1.print(10)
+        //     print("\n")
+        //     print("asize:")
+        //     s1.print(10)
+        //     print("\n")
+
+        //     break
+        // }
+        panic("stop")
+        //
 
         // Globals
         let g_adr = this.globals.data

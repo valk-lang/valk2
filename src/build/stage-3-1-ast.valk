@@ -60,13 +60,7 @@ fn parse_func_ast(func: Func) {
     func.wipe_ast()
 
     // Declarations
-    each func.rett_decls as decl {
-        func.scope.decls.push(decl)
-    }
-    each func.args as arg {
-        func.scope.set_idf(p, arg.name, Idf.for_decl(arg.decl))
-        func.scope.add_decl(arg.decl)
-    }
+    func_declare_base_decls(func)
 
     // Parse
     read_ast(p, func.scope, false)
@@ -78,6 +72,29 @@ fn parse_func_ast(func: Func) {
     func_generate_alloca_scope(func)
 }
 
+fn func_declare_base_decls(func: Func) {
+    let b = func.build
+
+    let frame_decl = Decl.new(type_ptr(b), false)
+    frame_decl.is_mut = true
+    let gc_count_decl = Decl.new(type_uint(b), false)
+    gc_count_decl.is_mut = true
+    let alloca_size_decl = Decl.new(type_uint(b), false)
+    alloca_size_decl.is_mut = true
+
+    func.scope.add_decl(frame_decl)
+    func.scope.add_decl(gc_count_decl)
+    func.scope.add_decl(alloca_size_decl)
+
+    each func.rett_decls as decl {
+        func.scope.add_decl(decl)
+    }
+    each func.args as arg {
+        func.scope.set_idf_b(b, arg.name, Idf.for_decl(arg.decl))
+        func.scope.add_decl(arg.decl)
+    }
+}
+
 fn func_calculate_alloca_size(func: Func) {
     let b = func.build
     let scope = func.scope
@@ -85,19 +102,33 @@ fn func_calculate_alloca_size(func: Func) {
     let gc_count: uint = 0
     let alloca_size: uint = 0
     let decls = scope.decls
-    each decls as decl {
-        if !decl.is_gc {
-            if decl.is_mut {
-                decl.offset = alloca_size
-                alloca_size += decl.type.size()
-                alloca_size = alloca_size.round_up(b.ptr_size)
-            }
-            continue
+    let new_list = Array[Decl].new(decls.length)
+    each decls as i, decl {
+        if i < 3 {
+            decl.offset = alloca_size
+            alloca_size += decl.type.size()
+            alloca_size = alloca_size.round_up(b.ptr_size)
+            new_list.push(decl)
+            continue;
         }
+        if !decl.is_gc : continue
         if decl.is_mut || !decl.is_arg {
             decl.offset = gc_count++
+            new_list.push(decl)
         }
     }
+    each decls as i, decl {
+        if decl.is_gc && (decl.is_mut || !decl.is_arg) : continue
+        if decl.is_mut {
+            decl.offset = alloca_size
+            alloca_size += decl.type.size()
+            alloca_size = alloca_size.round_up(b.ptr_size)
+        }
+        if i > 2 {
+            new_list.push(decl)
+        }
+    }
+    scope.decls = new_list
 
     func.gc_decl_count = gc_count
     func.alloca_size = alloca_size
@@ -113,13 +144,45 @@ fn func_generate_alloca_scope(func: Func) {
         func_scope.ast.prepend(Token { type: tk_inline_scope, scope1: alloca_scope })
     }
 
+    let decls = func.scope.decls
+    let frame_decl = decls.get(0) ! b.error("Missing base declaration (1) (bug)")
+    let gc_decl = decls.get(1) ! b.error("Missing base declaration (2) (bug)")
+    let asize_decl = decls.get(2) ! b.error("Missing base declaration (3) (bug)")
+
+    let ast = alloca_scope.ast
+
+    each decls as decl {
+        if !decl.is_mut : continue
+        if decl.is_gc : continue
+        if decl.is_arg : continue
+        ast.push(Token {
+            type: tk_assign
+            value1: vgen_decl(decl)
+            value2: decl.type.is_pointer ? vgen_null(type_ptr(b)) : vgen_int(0, type_uint(b))
+        })
+    }
+
+    ast.push(Token {
+        type: tk_assign
+        value1: vgen_decl(frame_decl)
+        value2: vgen_cast(vgen_int(123, type_uint(b)), type_ptr(b))
+    })
+    ast.push(Token {
+        type: tk_assign
+        value1: vgen_decl(gc_decl)
+        value2: vgen_int(555, type_uint(b))
+    })
+    ast.push(Token {
+        type: tk_assign
+        value1: vgen_decl(asize_decl)
+        value2: vgen_int(func.alloca_size @as int, type_uint(b))
+    })
+
     if func.gc_decl_count > 0 {
 
         ///////////////////////////
         // Function start
         ///////////////////////////
-
-        let ast = alloca_scope.ast
 
         ast.push(Token {
             type: tk_ir_comment

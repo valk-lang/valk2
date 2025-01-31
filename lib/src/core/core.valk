@@ -13,3 +13,6 @@ exit fn panic(msg: String) {
     exit(1)
 }
 
+exit fn raise(sig: int) {
+    sys:raise(sig @as i32)
+}

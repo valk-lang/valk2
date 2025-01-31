@@ -3,16 +3,28 @@ header "sys" as sys
 
 fn println(msg: String) {
     let data = msg.data_ptr()
-    let len : uint = msg.bytes
     let fd : i32 = 1
+
+    #if OS == win
+    let len : u32 = msg.bytes @as u32
+    #else
+    let len : uint = msg.bytes
+    #end
+
     sys:write(fd, data, len)
     sys:write(fd, "\n".data_ptr(), 1)
 }
 
 fn print(msg: String) {
     let data = msg.data_ptr()
-    let len : uint = msg.bytes
     let fd : i32 = 1
+
+    #if OS == win
+    let len : u32 = msg.bytes @as u32
+    #else
+    let len : uint = msg.bytes
+    #end
+
     sys:write(fd, data, len)
 }
 

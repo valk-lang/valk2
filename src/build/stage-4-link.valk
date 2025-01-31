@@ -26,11 +26,19 @@ fn stage_link(b: Build) {
             linker = win_linker()
         }
     } else {
-        if t.os == "linux" {
-            linker = "ld.lld"
-        } else if t.os == "macos" {
-            linker = "ld64.lld"
-        } else if t.os == "win" {
+        if t.host_os == "linux" {
+            if t.os == "win" {
+                linker = "lld-link"
+            } else {
+                linker = "ld.lld"
+            }
+        } else if t.host_os == "macos" {
+            if t.os == "win" {
+                linker = "lld-link"
+            } else {
+                linker = "ld64.lld"
+            }
+        } else if t.host_os == "win" {
             linker = win_linker()
         }
     }
@@ -50,7 +58,7 @@ fn stage_link(b: Build) {
     cmd += "\" "
 
     // Link directories
-    cmd += "-L\""
+    cmd += t.os == "win" ? "/libpath:\"" : "-L\""
     cmd += valk_lib_dir + "/libs/" + t.target
     cmd += "\" "
 
@@ -158,5 +166,5 @@ fn add_libs(b: Build, cmd: String) String {
 }
 
 fn win_linker() String {
-    return fs:exe_dir() + "\\lld-link.exe"
+    return fs:exe_dir() + "/lld-link.exe"
 }

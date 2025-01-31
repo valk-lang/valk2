@@ -1,6 +1,7 @@
 
 use io
 use mem
+use core
 
 pointer ptr {
     fn to_hex() String {
@@ -42,5 +43,22 @@ pointer ptr {
     }
     fn offset_int(offset: int) ptr {
         return @ptr_offset(this, offset)
+    }
+
+    fn print_stack_from_top(length: uint) {
+        let i = 0
+        let adr : ptr = this + length * sizeof(ptr)
+        let until : ptr = this - 64
+        while adr >= until {
+            print("0x")
+            adr.print()
+            print(" => ")
+            let v = @ptrv(adr, ptr)
+            v.print()
+            print(" | ")
+            (v @as uint).print(10)
+            print("\n")
+            adr -= sizeof(ptr)
+        }
     }
 }

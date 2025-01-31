@@ -340,21 +340,21 @@ fn ir_value_str(ir: IR, v: Value) String {
             // Frame pointer
             code.append_str("  ")
             code.append_str(framep)
-            code.append_str(" = tail call ptr @llvm.frameaddress(i32 0)\n")
+            code.append_str(" = call ptr @llvm.frameaddress(i32 0)\n")
             let s1 = ir_gep(ir, buf, 0)
             ir_store(ir, s1, framep, "ptr")
 
             // Stack pointer
             code.append_str("  ")
             code.append_str(stackp)
-            code.append_str(" = tail call ptr @llvm.stacksave()\n")
+            code.append_str(" = call ptr @llvm.stacksave()\n")
             let s2 = ir_gep(ir, buf, 2 * ir.build.ptr_size @as int)
             ir_store(ir, s2, stackp, "ptr")
 
             // Call setjmp
             code.append_str("  ")
             code.append_str(result)
-            code.append_str(" = tail call i32 @llvm.eh.sjlj.setjmp(ptr ");
+            code.append_str(" = call i32 @llvm.eh.sjlj.setjmp(ptr ");
             code.append_str(buf);
             code.append_str(")\n");
         } else {
@@ -389,7 +389,7 @@ fn ir_value_str(ir: IR, v: Value) String {
         let framep = ir.var()
         let code = ir.code()
         code.append_str(framep)
-        code.append_str(" = tail call ptr @llvm.frameaddress(i32 ")
+        code.append_str(" = call ptr @llvm.frameaddress(i32 ")
         code.append_str(v.int)
         code.append_str(")\n")
         return framep

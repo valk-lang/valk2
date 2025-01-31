@@ -27,6 +27,10 @@ fn get_target(cli: helper:CLIArgs) Target {
         build_error("Invalid target: " + target + "\nSupported: " + supported)
     }
 
+    let split = target.split("-")
+    os = split.get(0) ! build_error("Missing target OS part (bug)")
+    arch = split.get(1) ! build_error("Missing target ARCH part (bug)")
+
     let ptr_size = 8
 
     return Target {
