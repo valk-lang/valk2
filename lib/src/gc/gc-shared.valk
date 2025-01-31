@@ -16,14 +16,14 @@ class GcShared {
     }
 
     fn add_gc(gc: GcLocal) {
-        this.lock.lock()
+        // this.lock.lock()
         this.local_gcs.push(gc)
-        this.lock.unlock()
+        // this.lock.unlock()
     }
     fn remove_gc(gc: GcLocal) {
-        this.lock.lock()
+        // this.lock.lock()
         this.local_gcs.remove_value(gc)
-        this.lock.unlock()
+        // this.lock.unlock()
     }
 
     + fn start_loop() {

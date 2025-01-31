@@ -131,9 +131,9 @@ fn ir_write_func_definition(code: utils:ByteBuffer, func: Func, extern: bool) {
     }
 
     if extern {
-        code.append_str(")\n")
+        code.append_str(") #0\n")
     } else {
-        code.append_str(")")
+        code.append_str(") #0")
         if func.inline {
             code.append_str(" alwaysinline")
         }

@@ -151,17 +151,6 @@ fn func_generate_alloca_scope(func: Func) {
 
     let ast = alloca_scope.ast
 
-    each decls as decl {
-        if !decl.is_mut : continue
-        if decl.is_gc : continue
-        if decl.is_arg : continue
-        ast.push(Token {
-            type: tk_assign
-            value1: vgen_decl(decl)
-            value2: decl.type.is_pointer ? vgen_null(type_ptr(b)) : vgen_int(0, type_uint(b))
-        })
-    }
-
     ast.push(Token {
         type: tk_assign
         value1: vgen_decl(frame_decl)
