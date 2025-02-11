@@ -10,7 +10,7 @@ value POOL_DATA_OFFSET ((sizeof(ptr) * 6))
 // Stack item 8 bytes prefix:
 // { color: u32, mark: u8, propc: u8, block_offset: u16 }
 // FUTURE: { color: u16, mark: u8, block_index: u8, has_free_hook: u8, x: u8, vtable_index: u16 }
-// marks: on-stack(1), shared_1(2), shared_2(4), has_vt(8), in_still_used_list(16)
+// marks: on-stack(1), shared_1(2), shared_2(4), has_vt(8), in_still_used_list(16), used(32)
 
 value byte_color (0)
 value byte_mark (4)
@@ -26,6 +26,7 @@ value mark_bit_shared1 (2)
 value mark_bit_shared2 (4)
 value mark_bit_has_vtable (8)
 value mark_bit_still_used (16)
+value mark_bit_used (32)
 
 fn pools_init() {
     let list = pools
@@ -141,6 +142,7 @@ struct Pool {
             let item = data + index * isize
 
             if @ptrv(item, color_type, byte_color) != color_blank : continue
+            // if @ptrv(item, u8, byte_mark) & mark_bit_used != 0 : continue
 
             // Increase mem usage
             mem_new += isize

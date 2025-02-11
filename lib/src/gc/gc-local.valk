@@ -15,6 +15,7 @@ global mem_new : uint
 global mem_trigger : uint
 global mem_suggestion : uint
 global mem_marked : uint
+global mem_marked_last : uint
 
 value mem_minimum_trigger (8192)
 
@@ -95,11 +96,13 @@ struct GcLocal {
         // Make sure share color is valid
         @ptrv(color_state, u8, color_shared) = color_state_used
 
+        this.loop_stack_items(mark_item_used)
+
         // Check if items have dissapeared from the stack
         this.check_previous_stack_items()
 
         // Mark objects that are still used
-        this.mark_stacks()
+        this.loop_stack_items(SELF.mark_item)
 
         // Check if objects are still used
         this.check_still_used()
@@ -134,7 +137,7 @@ struct GcLocal {
 
     fn check_previous_stack_items() {
 
-        this.mark_on_stack(1)
+        this.loop_stack_items(SELF.mark_on_stack)
 
         let stu = still_used
         let state = color_state
@@ -181,117 +184,23 @@ struct GcLocal {
         }
         list.index = data - list.data
 
-        this.mark_on_stack(0)
+        this.loop_stack_items(SELF.mark_off_stack)
     }
 
-    fn mark_on_stack(val: u8) {
-
-        // Globals
-        let g_adr = this.globals.data
-        let g_end_adr = g_adr + this.globals.index
-        while g_adr < g_end_adr {
-            let ref = @ptrv(g_adr, ptr)
-            let item = @ptrv(ref, ?ptr)
-            if isset(item) {
-                if val == 1 {
-                    @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) | mark_bit_on_stack
-                } else {
-                    @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) & (255 - mark_bit_on_stack)
-                }
-            }
-            g_adr += sizeof(ptr)
-        }
-
-        // Stack
-        let stack = stack_main
-        let adr = stack.base
-        let top = stack.adr
-        while adr < top {
-            let item = @ptrv(adr, ?ptr)
-            if isset(item) {
-                if val == 1 {
-                    @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) | mark_bit_on_stack
-                } else {
-                    @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) & (255 - mark_bit_on_stack)
-                }
-            }
-            adr += sizeof(ptr)
-        }
-
-        let coro_data = coro:g_coros.data
-        let coro_count = coro:g_coros.length
-        while coro_count-- > 0 {
-            let coro = @ptrv(coro_data, ?ptr, coro_count)
-            if isset(coro) {
-                let adr = (coro @as coro:Coro).stack.base
-                let top = (coro @as coro:Coro).stack.adr
-                while adr < top {
-                    let item = @ptrv(adr, ?ptr)
-                    if isset(item) {
-                        if val == 1 {
-                            @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) | mark_bit_on_stack
-                        } else {
-                            @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) & (255 - mark_bit_on_stack)
-                        }
-                    }
-                    adr += sizeof(ptr)
-                }
-            }
-        }
+    static fn mark_on_stack(item: ptr) {
+        @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) | mark_bit_on_stack
     }
-
-    fn mark_stacks() {
-
-        // Globals
-        let g_adr = this.globals.data
-        let g_end_adr = g_adr + this.globals.index
-        while g_adr < g_end_adr {
-            let ref = @ptrv(g_adr, ptr)
-            let item = @ptrv(ref, ptr)
-            if item != null {
-                this.mark_item(item)
-            }
-            g_adr += sizeof(ptr)
-        }
-
-        // Stack
-        let stack = stack_main
-        let adr = stack.base
-        let top = stack.adr
-        while adr < top {
-            let item = @ptrv(adr, ptr, 0)
-            if item != null {
-                this.mark_item(item)
-            }
-            adr += sizeof(ptr)
-        }
-
-        let coro_data = coro:g_coros.data
-        let coro_count = coro:g_coros.length
-        while coro_count-- > 0 {
-            let coro = @ptrv(coro_data, ?ptr, coro_count)
-            if isset(coro) {
-                let adr = (coro @as coro:Coro).stack.base
-                let top = (coro @as coro:Coro).stack.adr
-                while adr < top {
-                    let item = @ptrv(adr, ptr)
-                    if item != null {
-                        this.mark_item(item)
-                    }
-                    adr += sizeof(ptr)
-                }
-            }
-        }
+    static fn mark_off_stack(item: ptr) {
+        @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) & (255 - mark_bit_on_stack)
     }
-
-    fn mark_item(item: ptr) {
+    static fn mark_item(item: ptr) {
         let color = @ptrv(item, color_type, byte_color_rel)
         if @ptrv(color_state, u8, color) == color_state_unused {
 
             let c = Color.get()
             color_disable_after = false
 
-            mark(item, c)
+            mark_item(item, c)
 
             if color_disable_after {
                 let adr = disable_colors.get(sizeof(color_type))
@@ -365,6 +274,53 @@ struct GcLocal {
             let color = @ptrv(adr, color_type)
             adr += sizeof(color_type)
             Color.give(color)
+        }
+    }
+
+    ////////////////////
+    ////////////////////
+
+    fn loop_stack_items(handler: fn(ptr)()) {
+
+        // Globals
+        let g_adr = this.globals.data
+        let g_end_adr = g_adr + this.globals.index
+        while g_adr < g_end_adr {
+            let ref = @ptrv(g_adr, ptr)
+            let item = @ptrv(ref, ?ptr)
+            if isset(item) {
+                handler(item)
+            }
+            g_adr += sizeof(ptr)
+        }
+
+        // Stack
+        let stack = stack_main
+        let adr = stack.base
+        let top = stack.adr
+        while adr < top {
+            let item = @ptrv(adr, ?ptr)
+            if isset(item) {
+                handler(item)
+            }
+            adr += sizeof(ptr)
+        }
+
+        let coro_data = coro:g_coros.data
+        let coro_count = coro:g_coros.length
+        while coro_count-- > 0 {
+            let coro = @ptrv(coro_data, ?ptr, coro_count)
+            if isset(coro) {
+                let adr = (coro @as coro:Coro).stack.base
+                let top = (coro @as coro:Coro).stack.adr
+                while adr < top {
+                    let item = @ptrv(adr, ?ptr)
+                    if isset(item) {
+                        handler(item)
+                    }
+                    adr += sizeof(ptr)
+                }
+            }
         }
     }
 

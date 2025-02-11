@@ -1,6 +1,33 @@
 
+fn mark_item_used(item: ptr) $hot {
 
-fn mark(item: ptr, color: color_type) $hot {
+    let data = (@ptr_offset(item, -8)) @as GcData
+    let mark = data.mark
+
+    if mark & mark_bit_used == mark_bit_used : return
+
+    data.mark = mark | mark_bit_used
+
+    mark_item_properties_used(item)
+}
+
+fn mark_item_properties_used(item: ptr) $hot {
+
+    let data = (@ptr_offset(item, -8)) @as GcData
+    let propc = data.propc
+    let mark = data.mark
+
+    let has_vtable = (mark & mark_bit_has_vtable) != 0
+    let prop_base = item + (has_vtable ? sizeof(ptr) : 0)
+    while propc-- > 0 {
+        let sub = @ptrv(prop_base, ?ptr, propc)
+        if isset(sub) {
+            mark_item_used(sub)
+        }
+    }
+}
+
+fn mark_item(item: ptr, color: color_type) $hot {
 
     let data = (@ptr_offset(item, -8)) @as GcData
     let item_color = data.color
@@ -38,7 +65,7 @@ fn mark(item: ptr, color: color_type) $hot {
         while propc-- > 0 {
             let sub = @ptrv(prop_base, ?ptr, propc)
             if isset(sub) {
-                mark(sub, color)
+                mark_item(sub, color)
             }
         }
     }
