@@ -141,8 +141,8 @@ struct Pool {
             let data = block + POOL_DATA_OFFSET
             let item = data + index * isize
 
-            if @ptrv(item, color_type, byte_color) != color_blank : continue
-            // if @ptrv(item, u8, byte_mark) & mark_bit_used != 0 : continue
+            // if @ptrv(item, color_type, byte_color) != color_blank : continue
+            if @ptrv(item, u8, byte_mark) & mark_bit_used != 0 : continue
 
             // Increase mem usage
             mem_new += isize

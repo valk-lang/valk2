@@ -93,35 +93,45 @@ struct GcLocal {
 
         let s_mark = shared_mark
 
-        // Make sure share color is valid
-        @ptrv(color_state, u8, color_shared) = color_state_used
+        // Mark used
+        this.loop_stack_items(SELF.mark_item_used)
 
-        this.loop_stack_items(mark_item_used)
+        let increase = (mem_marked * 100) / (mem_marked_last + 1)
+        let trace = increase > 110
 
-        // Check if items have dissapeared from the stack
-        this.check_previous_stack_items()
+        if trace {
+            // Check if items have dissapeared from the stack
+            this.check_previous_stack_items()
 
-        // Mark objects that are still used
-        this.loop_stack_items(SELF.mark_item)
+            // Make sure share color is valid
+            @ptrv(color_state, u8, color_shared) = color_state_used
 
-        // Check if objects are still used
-        this.check_still_used()
-        still_used.reset()
+            // Give stack items a color
+            this.loop_stack_items(SELF.mark_item_color)
+
+            // Check if objects are still used
+            this.check_still_used()
+
+            // Disable colors that had conflicts
+            this.check_disable_colors()
+            disable_colors.reset()
+            this.check_return_colors()
+            return_colors.reset()
+
+            //
+            mem_marked_last = mem_marked
+        }
+
+        // Call un-used item free hooks
         this.check_blanks()
         blanks.reset()
 
         // Reset pools
         reset_pools()
 
-        // Disable colors that had conflicts
-        this.check_disable_colors()
-        disable_colors.reset()
-        this.check_return_colors()
-        return_colors.reset()
-
         // Update gc trigger point
         mem_trigger = mem_marked / 100 * 145 + mem_minimum_trigger
-        mem_suggestion = mem_marked / 100 * 115 + mem_minimum_trigger
+        mem_suggestion = mem_marked / 100 * 110 + mem_minimum_trigger
         mem_new = mem_marked
 
         // Mark shared
@@ -146,7 +156,7 @@ struct GcLocal {
         let data = list.data
         let adr = data
         let end = adr + list.index
-        list.index = 0 // Clear list
+
         while adr < end {
             let item = @ptrv(adr, ptr)
             let color = @ptrv(adr, uint, 1) @as color_type
@@ -156,19 +166,9 @@ struct GcLocal {
 
             if mark & mark_bit_on_stack == 0 {
                 // Disable color
-                if color >= color_custom {
-                    @ptrv(state, u8, color) = color_state_unused
-                    let adr = return_colors.get(sizeof(color_type))
-                    @ptrv(adr, color_type) = color
-
-                    // if @ptrv(item, u8, byte_still_used_rel) == 0 {
-                    if mark & mark_bit_still_used == 0 {
-                        // @ptrv(item, u8, byte_still_used_rel) = 1
-                        @ptrv(item, u8, byte_mark_rel) = mark | mark_bit_still_used
-                        let adr = stu.get(sizeof(ptr))
-                        @ptrv(adr, ptr) = item
-                    }
-                }
+                @ptrv(state, u8, color) = color_state_unused
+                let adr = return_colors.get(sizeof(color_type))
+                @ptrv(adr, color_type) = color
                 
             } else {
                 // Re-add to list
@@ -182,6 +182,7 @@ struct GcLocal {
                 }
             }
         }
+
         list.index = data - list.data
 
         this.loop_stack_items(SELF.mark_off_stack)
@@ -193,7 +194,23 @@ struct GcLocal {
     static fn mark_off_stack(item: ptr) {
         @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) & (255 - mark_bit_on_stack)
     }
-    static fn mark_item(item: ptr) {
+    static fn mark_item_used(item: ptr) {
+
+        let data = (@ptr_offset(item, -8)) @as GcData
+        let mark = data.mark
+
+        if mark & mark_bit_used == mark_bit_used : return
+
+        mark_item_used(item)
+
+        if mark & mark_bit_still_used == 0 {
+            data.mark = data.mark | mark_bit_still_used
+            let adr = still_used.get(sizeof(ptr))
+            @ptrv(adr, ptr) = item
+        }
+    }
+
+    static fn mark_item_color(item: ptr) {
         let color = @ptrv(item, color_type, byte_color_rel)
         if @ptrv(color_state, u8, color) == color_state_unused {
 
@@ -230,9 +247,14 @@ struct GcLocal {
             if @ptrv(state, u8, color) == color_state_unused {
                 free(item)
             } else {
-                @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) & (255 - mark_bit_still_used)
+                // @ptrv(item, u8, byte_mark_rel) = @ptrv(item, u8, byte_mark_rel) & (255 - mark_bit_still_used)
+                @ptrv(data, ptr) = item
+                data += sizeof(ptr)
             }
         }
+
+        list.index = data - list.data
+        // still_used.reset()
     }
 
     fn check_blanks() {
